@@ -194,7 +194,6 @@ class HumanRuleAgent(Agent):
 # (Sutton and Barto, Chapter 2), as subclasses of Agent. Document each class:
 # what it keeps in memory, how it chooses, what its parameters mean.
 
-
 class _ValueAgent(Agent):
     """Shared machinery for the action-value agents below (not an agent itself).
 
