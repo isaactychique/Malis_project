@@ -1,0 +1,26 @@
+# Local Python environments
+.malis_project/
+.venv/
+venv/
+ENV/
+
+# Python bytecode and test/cache files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Jupyter-generated files
+.ipynb_checkpoints/
+
+# LaTeX build auxiliaries (keep report PDFs trackable)
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
