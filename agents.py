@@ -309,7 +309,6 @@ class UCBAgent(_ValueAgent):
 # Task 6 (optional): add your contextual agents below, as subclasses of
 # ContextualAgent.
 
-
 class ContextualLinUCBAgent(ContextualAgent):
     """Linear UCB for Part IV: learn how conditions affect each fishing spot.
 
