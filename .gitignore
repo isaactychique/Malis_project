@@ -15,3 +15,12 @@ __pycache__/
 # Operating-system metadata
 .DS_Store
 Thumbs.db
+
+# LaTeX build auxiliaries (keep report PDFs trackable)
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc

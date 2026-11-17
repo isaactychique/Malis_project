@@ -1,0 +1,285 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{lmodern,microtype,amsmath,booktabs,tabularx,float,xcolor,hyperref,graphicx}
+\usepackage{enumitem}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\renewcommand{\arraystretch}{1.12}
+\definecolor{blue}{RGB}{26,65,110}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\title{Reinforcement Learning and Multi-Armed Bandits\\\large MALIS Project Report}
+\author{Sounsin Isaac Tychique Dakio \and Mengu Pu \and Shane Elton Lewis}
+\date{}
+\begin{document}
+\maketitle
+
+\section{Introduction}
+We study fishing as a five-armed bandit: each day, a player chooses one spot and observes a noisy catch. The spots are Old Pier, Rocky Point, Seagrass Bed, Deep Channel and Lighthouse Reef. Seasons 1, 2 and 3 last 30, 10 and 30 days; in Season 3 the spot means change after day 15. The objective is to maximize cumulative catch while learning which spot is productive. The simulator's oracle total, based on the best mean in each period, provides a benchmark for human and algorithmic choices.
+
+\section{Task 2: Human strategies and outcomes}
+\begin{itemize}
+    \item \textbf{Pu Meng:} In Season 1, Pu sampled all five spots, focused on Old Pier, and checked alternatives when catches fell, as described in her notes. She tried the same approach in the shorter Season 2 but, with limited observations, favored Rocky Point. In Season 3, she tested Lighthouse Reef and Rocky Point, switching after low catches at Lighthouse Reef. Her notes match this exploration-and-switching strategy, though she did not try Old Pier after the day-16 shift, when it became the best spot.
+
+    \item \textbf{Dakio Isaac:} Dakio explored spots broadly and without a fixed order, using random exploration in Seasons 1 and 2. In Season 2, the logs show some repetition: Rocky Point was visited three times, while Deep Channel was visited once. In Season 3, he followed a more structured pattern, choosing nearby or recently visited spots. This matches his notes, including his decision to continue that pattern after the day-16 shift.
+
+    \item \textbf{Shane Elton Lewis:} Lewis moved among spots to spread his choices in Season 1. In Season 2, after observing initial catches, he focused on Rocky Point and Lighthouse Reef. He began Season 3 by favoring Rocky Point, Seagrass Bed and Old Pier, then shifted toward Deep Channel after the change. His choices broadly match his notes; he first tried Deep Channel on day 22 and focused on it during the final six days.
+\end{itemize}
+
+\noindent\textbf{Rules abstracted from the team strategies:} Sample several or all spots, compare their observed catches, focus on those with the strongest results, and reassess alternatives when catches decline or conditions change. The ten-day Season 2 and the Season 3 shift limited how much evidence players could gather before adapting.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{llrrr}\toprule
+Player & Season 1 & Season 2 & Season 3 & Total (kg)\\\midrule
+Pu & 236.8 & 74.4 & 185.6 & 496.8\\
+Dakio & 155.2 & 75.0 & 167.5 & 397.7\\
+Lewis & 184.0 & 60.1 & 212.3 & 456.4\\\bottomrule
+\end{tabular}
+\caption{Observed human catches (kg). The season-specific oracle totals are bay-dependent and are used in Task 3.}
+\end{table}
+
+\section{Task 3: Measuring decision performance}
+The draft used squared error between oracle total and observed catch. This mixes decision quality with random day-to-day catch variation. To isolate decisions, we use the logged sequence of chosen spots and the simulator's true mean catch for each spot on each day. The decision regret is
+\[
+R_{\rm dec} = V^* - \sum_{t=1}^{T}\mu_{A_t,t},
+\]
+where $V^*$ is the best-possible expected catch in that logged bay, $A_t$ is the spot chosen on day $t$, and $\mu_{A_t,t}$ is its true mean catch that day. Season 3 uses the corresponding means before and after day 16. This counterfactual measure excludes random catch noise; lower values mean the choices were closer to the oracle. It is an evaluation measure, since true means are hidden from players during play.
+
+For example, a good choice sequence can still yield a low realized total through daily randomness. Decision regret scores each chosen location at its expected return, avoiding that noise. On these logged bays its mean was 82.8 kg for Dakio, 44.3 kg for Lewis and 33.9 kg for Pu. Since the players' bays differ, these figures describe the recorded runs rather than a general ability ranking.
+
+We tested this separation by running the same fixed HumanRuleAgent on 1,000 random bays per season. After each run, we used the simulator's true means to calculate the expected catch of the exact choices made. The difference between realized and expected catch is the luck residual; its mean is close to zero across bays, although it can be substantial in one run. Decision regret uses the expected catch instead, so its mean is not pushed up or down by lucky catches.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{lrrrr}\toprule
+Season & Mean expected catch & Mean realized catch & Mean decision regret & SD of luck residual\\\midrule
+1 & 231.13 & 231.35 & 28.85 & 13.57\\
+2 & 69.88 & 69.96 & 17.18 & 7.82\\
+3 & 213.79 & 213.94 & 46.20 & 14.18\\\bottomrule
+\end{tabular}
+\caption{The same HumanRuleAgent across 1,000 random bays per season. Catch and regret are in kg.}
+\end{table}
+
+The mean luck residuals were only 0.23, 0.08 and 0.16 kg in Seasons 1--3, while their standard deviations ranged from 7.82 to 14.18 kg. Thus a single observed total can be several kilograms above or below the strategy's expected performance even though luck averages out across many bays. This provides a direct simulator check that expected-choice regret separates decision quality from outcome noise.
+
+The logs also let us compare the shorter Season 2 and the Season 3 change. Season 2 totals are necessarily lower in absolute terms because it lasts only ten days, but each member's catch was a larger share of that bay's oracle than in Season 1: Pu 88.6\% versus 81.4\%, Dakio 81.5\% versus 57.5\%, and Lewis 80.1\% versus 72.2\%. These are individual runs, not proof that the shorter season improved performance; they show that the observed totals must be normalized before comparing seasons.
+
+In Season 3, the best spot changed for Dakio and Lewis, but not for Pu. We define adaptation speed here as the first post-shift day on which a player selected the new best spot; it does not imply that the player knew the hidden means.
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\textwidth}{@{}l l c X@{}}\toprule
+Player & Best spot before $\to$ after & First chose new best & Observed response\\\midrule
+Dakio & Old Pier $\to$ Seagrass Bed & Day 17 & Chose it on 3 of 15 post-shift days\\
+Lewis & Rocky Point $\to$ Deep Channel & Day 22 & Focused on it from day 25 through 30\\
+Pu & Rocky Point $\to$ Old Pier & Not chosen & Shifted from Lighthouse Reef to Rocky Point on day 20\\\bottomrule
+\end{tabularx}
+\caption{Post-shift choices in the members' Season 3 logs; the shift occurs at the start of day 16.}
+\end{table}
+
+Dakio sampled the new best location quickly but continued rotating among spots, so this is evidence of exploration rather than sustained adaptation. Lewis took six days to first try Deep Channel, then concentrated on it during the final six days. Pu reacted to low Lighthouse Reef catches after four post-shift days, but Rocky Point was not the new best and Old Pier was never tested after the shift. The logs therefore show the clearest sustained adjustment by Lewis; they do not establish that Pu identified the true post-shift optimum.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{lrrrr}\toprule
+Player & Season 1 & Season 2 & Season 3 & Mean\\\midrule
+Dakio & 121.3 & 22.9 & 104.2 & 82.8\\
+Lewis & 72.5 & 10.7 & 49.6 & 44.3\\
+Pu & 40.0 & 18.4 & 43.4 & 33.9\\\midrule
+All players & & & & 53.7\\\bottomrule
+\end{tabular}
+\caption{Decision regret (kg) on each member's logged bays, evaluated using expected catches.}
+\end{table}
+
+\section{Task 4: Bandit algorithms}
+We compare three action-value algorithms with a rule-based human baseline. Each learns only from the catches it has observed and resets its estimates at the start of a season.
+
+\subsection{Greedy agent}
+Greedy chooses the spot with the highest current estimate:
+\[
+A_t=\arg\max_a Q_t(a).
+\]
+We test $Q_0=0$ and the optimistic value $Q_0=12$ kg. Optimistic estimates encourage early sampling of other spots, although unlike UCB they do not guarantee every spot is tried before exploitation.
+
+\subsection{Epsilon-greedy agent}
+With probability $\epsilon$, this agent chooses a spot uniformly at random; otherwise it chooses $\arg\max_a Q_t(a)$. The baseline uses $\epsilon=0.1$. Unlike optimistic initialization, epsilon-greedy continues random exploration throughout the season, which can also spend later choices on lower-value spots.
+
+\subsection{Upper Confidence Bound agent}
+UCB adds an uncertainty bonus to each estimated value:
+\[
+A_t=\arg\max_a\left[Q_t(a)+c\sqrt{\frac{\ln t}{N_t(a)}}\right].
+\]
+Here $N_t(a)$ counts visits to spot $a$, and $c$ controls exploration. We use $c=2$; untried spots are selected once before applying the score. The bonus then favors spots with fewer observations, unlike uniform random exploration.
+
+\subsection{Best human strategy and value updates}
+Pu had the highest aggregate human catch (496.8 kg), so her explore-then-exploit approach is the best overall human strategy in Part II, although Dakio and Lewis led individual seasons. HumanRuleAgent in \texttt{agents.py} formalizes this approach: it samples every spot once, estimates each from up to its last three catches, and exploits the best estimate. If the mean of the last two catches at its current spot falls below 3 kg, it rechecks the best estimated alternative. This is a repeatable approximation of Pu's strategy, not a replay of her exact choices. After each catch $R$, values update as $Q(a)\leftarrow Q(a)+\alpha(R-Q(a))$. Sample averages use $\alpha=1/N(a)$; constant $\alpha$ weights recent catches more and can track change.
+
+\section{Task 5: Experiments and discussion}
+\subsection{Experimental protocol and random-bay results}
+The notebook imports all nine policies from \texttt{agents.py} and evaluates them with \texttt{play()} on the same 1,000 bay seeds per season. Table~\ref{tab:task5-distribution} reports catch distributions and mean oracle regret.
+
+\begin{table}[H]\centering\scriptsize
+\begin{tabular}{llrrrrr}\toprule
+Season & Agent & Mean & SD & P10 & P90 & Regret\\\midrule
+1 & Human rule & 231.35 & 38.45 & 177.33 & 278.52 & 28.63\\
+1 & Random & 181.25 & 34.12 & 136.59 & 226.20 & 78.73\\
+1 & Greedy ($Q_0=0$) & 184.47 & 67.74 & 93.17 & 276.56 & 75.51\\
+1 & Greedy ($Q_0=12$) & 236.47 & 37.35 & 184.00 & 278.71 & 23.52\\
+1 & $\epsilon$-greedy ($Q_0=0$) & 202.59 & 54.74 & 124.60 & 270.20 & 57.39\\
+1 & $\epsilon$-greedy ($Q_0=12$) & 230.52 & 36.95 & 178.60 & 273.51 & 29.46\\
+1 & $\epsilon$-greedy ($\epsilon=0.1,\alpha=0.2$) & 190.57 & 59.87 & 107.06 & 267.95 & 69.42\\
+1 & UCB ($c=2$) & 234.87 & 36.13 & 183.52 & 274.71 & 25.11\\
+1 & UCB ($c=2,\alpha=0.2$) & 232.56 & 38.25 & 179.66 & 277.90 & 27.42\\\midrule
+2 & Human rule & 69.96 & 13.70 & 51.88 & 87.30 & 17.10\\
+2 & Random & 61.24 & 14.40 & 42.40 & 79.80 & 25.82\\
+2 & Greedy ($Q_0=0$) & 61.35 & 23.60 & 30.40 & 93.30 & 25.71\\
+2 & Greedy ($Q_0=12$) & 70.56 & 13.05 & 52.20 & 87.20 & 16.50\\
+2 & $\epsilon$-greedy ($Q_0=0$) & 63.65 & 21.01 & 35.18 & 91.82 & 23.42\\
+2 & $\epsilon$-greedy ($Q_0=12$) & 69.38 & 13.23 & 51.46 & 86.10 & 17.68\\
+2 & $\epsilon$-greedy ($\epsilon=0.1,\alpha=0.2$) & 62.45 & 21.41 & 33.89 & 91.51 & 24.62\\
+2 & UCB ($c=2$) & 70.05 & 12.86 & 51.90 & 85.60 & 17.01\\
+2 & UCB ($c=2,\alpha=0.2$) & 70.54 & 13.00 & 52.30 & 86.03 & 16.53\\\midrule
+3 & Human rule & 213.94 & 32.85 & 170.77 & 254.70 & 46.04\\
+3 & Random & 182.73 & 26.65 & 148.65 & 216.89 & 77.26\\
+3 & Greedy ($Q_0=0$) & 184.06 & 48.12 & 119.78 & 249.21 & 75.92\\
+3 & Greedy ($Q_0=12$) & 213.30 & 35.97 & 165.98 & 258.90 & 46.68\\
+3 & $\epsilon$-greedy ($Q_0=0$) & 197.02 & 42.72 & 140.29 & 253.81 & 62.96\\
+3 & $\epsilon$-greedy ($Q_0=12$) & 209.56 & 34.45 & 162.50 & 252.73 & 50.42\\
+3 & $\epsilon$-greedy ($\epsilon=0.1,\alpha=0.2$) & 187.48 & 45.09 & 127.35 & 247.95 & 72.50\\
+3 & UCB ($c=2$) & 217.19 & 32.52 & 173.49 & 257.94 & 42.80\\
+3 & UCB ($c=2,\alpha=0.2$) & 210.70 & 33.31 & 169.48 & 255.01 & 49.28\\\bottomrule
+\end{tabular}
+\caption{Catch distribution (kg) and mean oracle regret for all agents on 1,000 matched bays per season.}
+\label{tab:task5-distribution}
+\end{table}
+
+Optimistic Greedy and UCB generally lead; Random and Greedy with $Q_0=0$ lag behind. Season 1 Greedy's SD falls from 67.74 kg at $Q_0=0$ to 37.35 kg at $Q_0=12$.
+
+Figure~\ref{fig:task5-regret} visualizes regret variability across the matched bays. The wide spread for Greedy ($Q_0=0$) reflects sensitivity to early noisy catches.
+
+\begin{figure}[H]\centering
+\includegraphics[width=\textwidth]{figures/task5_regret_distributions.png}
+\caption{Decision regret distributions for the nine agents over 1,000 matched bays in each season.}
+\label{fig:task5-regret}
+\end{figure}
+
+\subsection{Comparison on the team's bays}
+Every agent was run with 200 seeds on each of the nine logged bays. Table~\ref{tab:team-comparison} reports mean regret and cases where mean agent catch exceeded the human result. Human regret averaged 47.6 kg; UCB and optimistic Greedy outperformed humans in seven cases each.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{lrr}\toprule
+Agent & Mean regret (kg) & Better than human (/9)\\\midrule
+Human rule & 25.8 & 6\\
+Random & 59.0 & 0\\
+Greedy ($Q_0=0$) & 60.5 & 0\\
+Greedy ($Q_0=12$) & 22.7 & 7\\
+$\epsilon$-greedy ($Q_0=0$) & 45.7 & 4\\
+$\epsilon$-greedy ($Q_0=12$) & 25.6 & 7\\
+$\epsilon$-greedy ($\epsilon=0.1,\alpha=0.2$) & 53.9 & 3\\
+UCB ($c=2$) & 22.2 & 7\\
+UCB ($c=2,\alpha=0.2$) & 22.0 & 7\\\bottomrule
+\end{tabular}
+\caption{Average across nine logged team bays; agent outcome averages use 200 seeds per bay.}
+\label{tab:team-comparison}
+\end{table}
+
+\subsection{Best agents for Seasons 2 and 3}
+Optimistic Greedy leads Season 2 (70.56 kg), but is tied with constant-step UCB (70.54 kg; paired gap $0.02\pm0.31$ kg, 95\% interval). UCB ($c=2$) leads Season 3 at 217.19 kg, $3.24\pm1.75$ kg above HumanRuleAgent. In a 200-day changing season, constant-step UCB's regret was 147.2 kg versus 167.1 kg for sample averages.
+
+\subsection{Parameter study: epsilon-greedy}
+We swept $\epsilon=0$--$0.5$ with $Q_0=0$ and $Q_0=12$ (Table~\ref{tab:epsilon-sweep}). The best tested values were $0.3$ and $0$, respectively: optimistic initialization already explores, so extra random choices reduce exploitation. These are grid results, not global optima.
+
+\begin{table}[H]\centering\scriptsize
+\begin{tabular}{rrrrrrr}\toprule
+$\epsilon$ & S1 $Q_0=0$ & S2 $Q_0=0$ & S3 $Q_0=0$ & S1 $Q_0=12$ & S2 $Q_0=12$ & S3 $Q_0=12$\\\midrule
+0.00 & 77.22 & 26.35 & 74.84 & 23.26 & 16.29 & 48.52\\
+0.01 & 74.20 & 25.75 & 73.26 & 23.94 & 16.52 & 48.85\\
+0.02 & 71.61 & 25.37 & 71.29 & 24.33 & 16.62 & 48.88\\
+0.05 & 65.10 & 24.55 & 67.33 & 26.36 & 16.93 & 49.58\\
+0.10 & 57.39 & 23.42 & 62.96 & 29.46 & 17.68 & 50.42\\
+0.20 & 50.45 & 22.10 & 59.48 & 34.96 & 19.33 & 52.02\\
+0.30 & 48.56 & 21.33 & 57.39 & 40.43 & 20.60 & 55.40\\
+0.50 & 53.30 & 21.87 & 60.59 & 52.17 & 22.62 & 61.53\\\bottomrule
+\end{tabular}
+\caption{Mean regret (kg) over 1,000 matched bays for the epsilon sweep.}
+\label{tab:epsilon-sweep}
+\end{table}
+
+Figure~\ref{fig:epsilon-sweep} shows the same parameter study graphically: exploration helps when $Q_0=0$, while optimistic initialization makes additional random exploration costly.
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.92\textwidth]{figures/task5_epsilon_sweep.png}
+\caption{Mean regret as $\epsilon$ varies, with standard and optimistic initial values.}
+\label{fig:epsilon-sweep}
+\end{figure}
+
+\section{Task 6 (optional): Contextual bandit}
+\subsection{Method and comparison}
+For 300 days, the agent observes wind, waves and tide before each choice. Linear UCB fits a regularized catch model per spot from normalized conditions and adds an uncertainty bonus. We compared it with prediction-only selection, random selection and the best non-contextual policy on the same 1,000 bays.
+
+\begin{table}[H]\centering\scriptsize
+\begin{tabular}{lrrrrrr}\toprule
+Agent & Mean & SD & Median & P10 & P90 & Regret\\\midrule
+Random contextual & 1747.9 & 414.8 & 1743.1 & 1219.8 & 2290.1 & 1215.2\\
+Prediction only ($\alpha=0$) & 1940.2 & 799.7 & 1871.8 & 951.4 & 3057.4 & 1022.9\\
+Linear UCB ($\alpha=8$) & 2856.6 & 594.6 & 2854.9 & 2117.8 & 3600.3 & 106.5\\
+UCB ($c=2$, ignores context) & 2790.2 & 651.9 & 2781.0 & 1965.4 & 3635.7 & 172.9\\\bottomrule
+\end{tabular}
+\caption{Contextual-bay total-catch distribution (kg) and mean oracle regret over 1,000 matched bays.}
+\label{tab:context-results}
+\end{table}
+
+Linear UCB achieved the lowest regret (106.5 kg), beating non-contextual UCB (172.9 kg) and random on every bay. It averaged 2,856.6 kg; prediction-only averaged 1,940.2 kg (SD 799.7 kg). Without an uncertainty bonus, early noisy estimates can lead to poor exploitation: on seed 660, prediction-only caught 481.6 kg against an oracle of 4,203.3 kg, while Linear UCB caught 4,149.3 kg. Figure~\ref{fig:context-comparison} shows catches and paired gains over random.
+\begin{figure}[H]\centering
+\includegraphics[width=0.92\textwidth]{figures/task6_contextual_comparison.png}
+\caption{Contextual-agent catches and paired Linear UCB versus random comparison.}
+\label{fig:context-comparison}
+\end{figure}
+
+\subsection{Exploration parameter}
+On 300 matched bays, regret fell from 667.5 kg at $\alpha=2$ to 107.0 kg at $\alpha=8$, then rose to 123.9 kg at $\alpha=10$. Moderate exploration helped learn condition-catch relationships; stronger exploration did not. Thus $\alpha=8$ was best in this sweep, not necessarily globally.
+\begin{table}[H]\centering\small
+\begin{tabular}{rrr}\toprule
+$\alpha$ & Mean regret (kg) & SD regret (kg)\\\midrule
+2 & 667.5 & 592.9\\
+4 & 323.5 & 341.0\\
+6 & 159.0 & 179.0\\
+8 & 107.0 & 82.4\\
+10 & 123.9 & 56.7\\\bottomrule
+\end{tabular}
+\caption{Linear UCB sensitivity to exploration strength over 300 matched contextual bays.}
+\label{tab:context-alpha}
+\end{table}
+
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.70\textwidth]{figures/task6_alpha_sweep.png}
+\caption{Mean regret and 95\% confidence intervals for the contextual $\alpha$ sweep.}
+\label{fig:context-alpha}
+\end{figure}
+
+\section{Conclusion}
+The results favor early exploration and adaptation when rewards change. Optimistic Greedy and UCB performed strongly in ordinary seasons, with UCB adapting best after the shift. Expected-choice regret separated decisions from catch noise, while contextual Linear UCB benefited from weather information.
+
+\section*{Team contributions}
+Pu Meng, Dakio Isaac and Shane Elton Lewis each played all three seasons, supplied their own game logs and documented their strategies and results. 
+\newline Pu Menggu designed the human rule agent and the masured the performance against the agents designed 
+\newline Shane Elton Lewis designed the performance measure, greedy , epsilon greedy and UCB agent and analysed and specified all the agents used in the report 
+\newline Dakio Isaac tested the designed performance measure in the simulator and separated decision from luckdesigned the contextual bandits agent using linear UCB and the UCB agent used in the project and specified it in the report 
+\section{AI Use And Contribution}
+This project used generative AI tools i.e. Claude AI , Gemini and Chatgpt to generate and debug the code used to simulate the N armed Bandit problem. 
+\begin{thebibliography}{9}
+
+\bibitem{sutton2018}
+Sutton, R. S., \& Barto, A. G. (2018).
+\textit{Reinforcement Learning: An Introduction}
+(2nd ed.). The MIT Press.
+
+\bibitem{claude}
+\url{https://claude.ai/chat/7dc733a8-ac8a-46de-a1ee-3aa295d3d3d4}
+
+
+\bibitem{claude2}
+\url{https://claude.ai/chat/22a1aa81-9005-48a6-af82-20347d2c73ad}
+\end{thebibliography}
+
+\end{document}
